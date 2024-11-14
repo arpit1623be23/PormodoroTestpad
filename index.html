@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Clock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            width: 250px;
+            height: 450px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .timer-display {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #4a4a4a;
+            color: white;
+            font-size: 3rem;
+            font-weight: bold;
+        }
+
+        .controls-section {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .time-control {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .time-control-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .time-control-item span {
+            margin: 0 10px;
+            font-size: 1.2rem;
+        }
+
+        .control-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #4a4a4a;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .action-btn {
+            flex: 1;
+            margin: 0 5px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .action-btn:hover {
+            background-color: #45a049;
+        }
+
+        .action-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="timer-display" id="timerDisplay">25:00</div>
+        
+        <div class="controls-section">
+            <div class="time-control">
+                <div class="time-control-item">
+                    <button class="control-btn" id="sessionDecrement">-</button>
+                    <span id="sessionLength">25</span>
+                    <button class="control-btn" id="sessionIncrement">+</button>
+                </div>
+                <div class="time-control-item">
+                    <button class="control-btn" id="breakDecrement">-</button>
+                    <span id="breakLength">5</span>
+                    <button class="control-btn" id="breakIncrement">+</button>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="action-btn" id="startBtn">Start</button>
+                <button class="action-btn" id="resetBtn">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PomodoroClock {
+            constructor() {
+                // Initialize elements
+                this.timerDisplay = document.getElementById('timerDisplay');
+                this.sessionLengthDisplay = document.getElementById('sessionLength');
+                this.breakLengthDisplay = document.getElementById('breakLength');
+                
+                // Buttons
+                this.startBtn = document.getElementById('startBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.sessionIncrementBtn = document.getElementById('sessionIncrement');
+                this.sessionDecrementBtn = document.getElementById('sessionDecrement');
+                this.breakIncrementBtn = document.getElementById('breakIncrement');
+                this.breakDecrementBtn = document.getElementById('breakDecrement');
+
+                // State variables
+                this.sessionLength = 25;
+                this.breakLength = 5;
+                this.timeRemaining = 25 * 60;
+                this.isSession = true;
+                this.isRunning = false;
+                this.timerInterval = null;
+
+                // Setup event listeners
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // Increment/Decrement buttons
+                this.sessionIncrementBtn.addEventListener('click', () => this.adjustTime('session', 1));
+                this.sessionDecrementBtn.addEventListener('click', () => this.adjustTime('session', -1));
+                this.breakIncrementBtn.addEventListener('click', () => this.adjustTime('break', 1));
+                this.breakDecrementBtn.addEventListener('click', () => this.adjustTime('break', -1));
+
+                // Start/Reset buttons
+                this.startBtn.addEventListener('click', () => this.toggleTimer());
+                this.resetBtn.addEventListener('click', () => this.resetTimer());
+            }
+
+            adjustTime(type, amount) {
+                if (this.isRunning) return;
+
+                if (type === 'session') {
+                    this.sessionLength = Math.max(1, Math.min(60, this.sessionLength + amount));
+                    this.sessionLengthDisplay.textContent = this.sessionLength;
+                    
+                    if (this.isSession) {
+                        this.timeRemaining = this.sessionLength * 60;
+                        this.updateDisplay();
+                    }
+                } else {
+                    this.breakLength = Math.max(1, Math.min(60, this.breakLength + amount));
+                    this.breakLengthDisplay.textContent = this.breakLength;
+                    
+                    if (!this.isSession) {
+                        this.timeRemaining = this.breakLength * 60;
+                        this.updateDisplay();
+                    }
+                }
+            }
+
+            toggleTimer() {
+                if (this.isRunning) {
+                    clearInterval(this.timerInterval);
+                    this.isRunning = false;
+                    this.startBtn.textContent = 'Start';
+                    this.enableTimeControls();
+                } else {
+                    this.startTimer();
+                }
+            }
+
+            startTimer() {
+                this.isRunning = true;
+                this.startBtn.textContent = 'Pause';
+                this.disableTimeControls();
+
+                this.timerInterval = setInterval(() => {
+                    this.timeRemaining--;
+
+                    if (this.timeRemaining < 0) {
+                        // Switch between session and break
+                        this.isSession = !this.isSession;
+                        this.timeRemaining = this.isSession 
+                            ? this.sessionLength * 60 
+                            : this.breakLength * 60;
+                    }
+
+                    this.updateDisplay();
+                }, 1000);
+            }
+
+            updateDisplay() {
+                const minutes = Math.floor(this.timeRemaining / 60);
+                const seconds = this.timeRemaining % 60;
+                this.timerDisplay.textContent = `${this.pad(minutes)}:${this.pad(seconds)}`;
+            }
+
+            resetTimer() {
+                clearInterval(this.timerInterval);
+                this.isRunning = false;
+                this.isSession = true;
+                this.timeRemaining = this.sessionLength * 60;
+                this.startBtn.textContent = 'Start';
+                this.updateDisplay();
+                this.sessionLengthDisplay.textContent = this.sessionLength;
+                this.breakLengthDisplay.textContent = this.breakLength;
+                this.enableTimeControls();
+            }
+
+            pad(number) {
+                return String(number).padStart(2, '0');
+            }
+
+            disableTimeControls() {
+                this.sessionIncrementBtn.disabled = true;
+                this.sessionDecrementBtn.disabled = true;
+                this.breakIncrementBtn.disabled = true;
+                this.breakDecrementBtn.disabled = true;
+            }
+
+            enableTimeControls() {
+                this.sessionIncrementBtn.disabled = false;
+                this.sessionDecrementBtn.disabled = false;
+                this.breakIncrementBtn.disabled = false;
+                this.breakDecrementBtn.disabled = false;
+            }
+        }
+
+        // Initialize the Pomodoro Clock
+        const pomodoroClock = new PomodoroClock();
+    </script>
+</body>
+</html>
